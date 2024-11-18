@@ -1,15 +1,21 @@
 import discord
+from dotenv import load_dotenv
+import os
 
+# Charger les variables d'environnement
+load_dotenv()
+TOKEN = os.getenv('DISCORD_TOKEN')
+
+# Intents nécessaires
 intents = discord.Intents.default()
 intents.message_content = True
 
+# Client Discord
 client = discord.Client(intents=intents)
-
 
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
-
 
 @client.event
 async def on_message(message):
@@ -62,4 +68,5 @@ async def on_message(message):
 
         await message.channel.send(f"Le channel **{channel_name}** a été créé avec succès !")
 
-client.run('MTMwNzk4NDcxOTUzMDY5MjYyOA.GZwFA-.un4XsusSRKw0ijUsev4aD2QCxdHWY2QlOncUm8')
+# Démarrer le bot
+client.run(TOKEN)
