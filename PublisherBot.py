@@ -1,6 +1,7 @@
 import discord
 from dotenv import load_dotenv
 import os
+from keep_alive import keep_alive  # Import du fichier keep_alive
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -67,6 +68,9 @@ async def on_message(message):
             await guild.create_voice_channel(channel_name)
 
         await message.channel.send(f"Le channel **{channel_name}** a été créé avec succès !")
+
+# Garder le bot en ligne
+keep_alive()
 
 # Démarrer le bot
 client.run(TOKEN)
