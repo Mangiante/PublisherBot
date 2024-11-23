@@ -172,6 +172,17 @@ def create_goodbye_embed(member):
     embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
     return embed
 
+# Charger les commandes supplémentaires
+from commands.create import setup_create_command
+from commands.mudras import setup_mudras_command
+from commands.logs import setup_logs_command
+from commands.rapport import setup_rapport_command
+setup_create_command(tree)  # Commande create
+setup_mudras_command(client, tree)  # Commande mudras
+setup_logs_command(tree)  # Commande logs
+setup_rapport_command(tree)  # Commande rapport
+
+
 ### Démarrage du bot ###
 @client.event
 async def on_ready():
