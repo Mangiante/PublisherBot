@@ -1,4 +1,4 @@
-from discord import app_commands
+from discord import app_commands, Interaction
 from datetime import datetime
 import cohere
 import os
@@ -41,7 +41,7 @@ async def fetch_role(member):
 
 async def setup_rapport_command(tree: app_commands.CommandTree):
     @tree.command(name="rapport", description="Générer un rapport journalier basé sur une mission.")
-    async def rapport_command(interaction: discord.Interaction, texte: str):
+    async def rapport_command(interaction: Interaction, texte: str):
         await interaction.response.defer()
 
         user = interaction.user

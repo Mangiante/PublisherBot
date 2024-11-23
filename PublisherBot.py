@@ -186,6 +186,7 @@ setup_rapport_command(tree)  # Commande rapport
 ### Démarrage du bot ###
 @client.event
 async def on_ready():
+    await setup_rapport_command(tree)
     await tree.sync()
     print(f"Connecté en tant que {client.user}")
 
