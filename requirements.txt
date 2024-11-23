@@ -3,3 +3,4 @@ flask
 python-dotenv~=1.0.1
 pillow~=11.0.0
 watchdog~=6.0.0
+cohere~=5.11.4
