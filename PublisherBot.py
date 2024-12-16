@@ -21,10 +21,7 @@ tree = app_commands.CommandTree(client)
 # Dictionnaire global pour mapper les messages aux rôles
 role_menu_mapping = {}
 
-# Cache pour stocker les messages (utile pour les événements comme `on_message_delete`)
-message_cache = {}
-
-### Fonctionnalité pour créer un menu de rôles ###
+### Commande pour créer un menu de rôles ###
 @tree.command(name="rolemenu", description="Créer un menu pour attribuer des rôles via des emojis.")
 async def rolemenu(interaction: discord.Interaction, roles: str, emojis: str):
     guild = interaction.guild
@@ -33,7 +30,6 @@ async def rolemenu(interaction: discord.Interaction, roles: str, emojis: str):
     role_names = [name.strip() for name in roles.split(",")]
     emoji_list = [emoji.strip() for emoji in emojis.split(",")]
 
-    # Vérifier que le nombre de rôles et d'emojis correspond
     if len(role_names) != len(emoji_list):
         await interaction.response.send_message(
             "Le nombre de rôles et d'emojis doit être identique.", ephemeral=True
@@ -62,6 +58,8 @@ async def rolemenu(interaction: discord.Interaction, roles: str, emojis: str):
         description=description,
         color=discord.Color.blue()
     )
+
+    await interaction.response.defer(ephemeral=True)
     message = await interaction.channel.send(embed=embed)
 
     # Ajouter les réactions au message
@@ -70,13 +68,14 @@ async def rolemenu(interaction: discord.Interaction, roles: str, emojis: str):
 
     # Stocker l'association message-rôles
     role_menu_mapping[message.id] = {emoji: role for emoji, role in zip(emoji_list, role_objects)}
-    await interaction.response.send_message("Le menu des rôles a été créé avec succès !", ephemeral=True)
+    print(f"[DEBUG] Role Menu Mapping : {role_menu_mapping}")
+    await interaction.followup.send("Le menu des rôles a été créé avec succès !", ephemeral=True)
 
-### Gestion des réactions ###
+### Gestion des réactions pour les rôles ###
 @client.event
 async def on_raw_reaction_add(payload):
     if payload.user_id == client.user.id:
-        return
+        return  # Ignorer les réactions du bot
 
     if payload.message_id in role_menu_mapping:
         guild = client.get_guild(payload.guild_id)
@@ -85,21 +84,28 @@ async def on_raw_reaction_add(payload):
 
         role_mapping = role_menu_mapping[payload.message_id]
         emoji = str(payload.emoji)
-        role = role_mapping.get(emoji)
 
+        # Corriger le format pour les emojis personnalisés
+        if isinstance(payload.emoji, discord.PartialEmoji) and payload.emoji.id:
+            emoji = f"<:{payload.emoji.name}:{payload.emoji.id}>"
+
+        role = role_mapping.get(emoji)
         if role:
             try:
                 member = await guild.fetch_member(payload.user_id)
                 if member:
+                    # Vérifier la hiérarchie des rôles
+                    if role.position >= guild.me.top_role.position:
+                        return
                     await member.add_roles(role)
-                    await log_action(guild, f"Rôle {role.name} attribué à {member.name}.")
             except Exception as e:
-                await log_action(guild, f"Erreur lors de l'ajout du rôle : {e}")
+                print(f"[ERROR] Erreur lors de l'ajout du rôle : {e}")
 
 @client.event
 async def on_raw_reaction_remove(payload):
+
     if payload.user_id == client.user.id:
-        return
+        return  # Ignorer les réactions du bot
 
     if payload.message_id in role_menu_mapping:
         guild = client.get_guild(payload.guild_id)
@@ -108,69 +114,23 @@ async def on_raw_reaction_remove(payload):
 
         role_mapping = role_menu_mapping[payload.message_id]
         emoji = str(payload.emoji)
-        role = role_mapping.get(emoji)
 
+        # Corriger le format pour les emojis personnalisés
+        if isinstance(payload.emoji, discord.PartialEmoji) and payload.emoji.id:
+            emoji = f"<:{payload.emoji.name}:{payload.emoji.id}>"
+
+        role = role_mapping.get(emoji)
         if role:
             try:
                 member = await guild.fetch_member(payload.user_id)
                 if member:
                     await member.remove_roles(role)
-                    await log_action(guild, f"Rôle {role.name} retiré de {member.name}.")
             except Exception as e:
-                await log_action(guild, f"Erreur lors du retrait du rôle : {e}")
+                print(f"[ERROR] Erreur lors du retrait du rôle : {e}")
 
-### Sauvegarde des messages dans un cache ###
-@client.event
-async def on_message(message):
-    message_cache[message.id] = {
-        "content": message.content,
-        "author": message.author.name,
-        "channel": message.channel.name if not isinstance(message.channel, discord.DMChannel) else "DM",
-        "guild": message.guild.name if message.guild else "DM",
-    }
-
-### Message d'accueil et de départ ###
-@client.event
-async def on_member_join(member):
-    embed = create_welcome_embed(member)
-    channel = member.guild.system_channel
-    if channel:
-        await channel.send(embed=embed)
-    await log_action(member.guild, f"{member.name} a rejoint le serveur.")
-
-@client.event
-async def on_member_remove(member):
-    embed = create_goodbye_embed(member)
-    channel = member.guild.system_channel
-    if channel:
-        await channel.send(embed=embed)
-    await log_action(member.guild, f"{member.name} a quitté le serveur.")
-
-### Logs et utilitaires ###
+### Logs ###
 async def log_action(guild, message):
-    log_channel = discord.utils.get(guild.text_channels, name="logs")
-    if log_channel:
-        await log_channel.send(f"[LOG] {message}")
-    else:
-        print(f"[LOG] {message}")
-
-def create_welcome_embed(member):
-    embed = discord.Embed(
-        title=f"Bienvenue {member.name} ! 🎉",
-        description=f"Bienvenue sur **{member.guild.name}** !",
-        color=discord.Color.green()
-    )
-    embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-    return embed
-
-def create_goodbye_embed(member):
-    embed = discord.Embed(
-        title=f"{member.name} a quitté le serveur 😢",
-        description=f"Au revoir **{member.guild.name}**.",
-        color=discord.Color.red()
-    )
-    embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-    return embed
+    print(f"[LOG] {message}")
 
 # Charger les commandes supplémentaires
 from commands.create import setup_create_command
@@ -181,7 +141,6 @@ setup_create_command(tree)  # Commande create
 setup_mudras_command(client, tree)  # Commande mudras
 setup_logs_command(tree)  # Commande logs
 setup_rapport_command(tree)  # Commande rapport
-
 
 ### Démarrage du bot ###
 @client.event
